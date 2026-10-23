@@ -1,0 +1,1058 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PLATFORM_ADMIN
+  WARDEN
+  STUDENT
+}
+
+enum CollegeStatus {
+  PENDING_VERIFICATION
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum HostelType {
+  BOYS
+  GIRLS
+  MIXED
+}
+
+enum BedStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+  MAINTENANCE
+  BLOCKED
+}
+
+enum StudentStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum AllocationStatus {
+  ACTIVE
+  TRANSFERRED
+  CHECKED_OUT
+}
+
+enum SessionType {
+  MORNING
+  EVENING
+  NIGHT
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LEAVE
+  LATE
+}
+
+enum MealType {
+  BREAKFAST
+  LUNCH
+  SNACKS
+  DINNER
+}
+
+enum LaundryBookingStatus {
+  BOOKED
+  COLLECTED
+  COMPLETED
+  CANCELLED
+}
+
+enum AreaType {
+  ROOM
+  COMMON_AREA
+  WASHROOM
+  CORRIDOR
+}
+
+enum CleaningStatus {
+  PENDING
+  COMPLETED
+  MISSED
+}
+
+enum ChargeStatus {
+  PENDING
+  PAID
+  OVERDUE
+  WAIVED
+}
+
+enum PaymentMethod {
+  ONLINE
+  CASH
+  CHEQUE
+  BANK_TRANSFER
+}
+
+enum FineStatus {
+  ISSUED
+  APPEALED
+  PAID
+  WAIVED
+}
+
+enum AppealStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ComplaintCategory {
+  PLUMBING
+  ELECTRICAL
+  FURNITURE
+  CLEANLINESS
+  INTERNET
+  FOOD
+  NOISE
+  OTHER
+}
+
+enum Urgency {
+  LOW
+  MEDIUM
+  HIGH
+  EMERGENCY
+}
+
+enum ComplaintStatus {
+  SUBMITTED
+  ACKNOWLEDGED
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  REOPENED
+}
+
+enum LeaveType {
+  WEEKEND
+  HOME_VISIT
+  MEDICAL
+  EMERGENCY
+  OTHER
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum FacilityType {
+  CAFETERIA
+  GYM
+  SPORTS_COMPLEX
+  STUDY_ROOM
+  RECREATION_ROOM
+}
+
+enum TargetAudience {
+  ALL
+  STUDENTS_ONLY
+  WARDENS_ONLY
+  SPECIFIC_HOSTEL
+}
+
+enum NoticePriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ALERT
+}
+
+// -------------------------------------------------------------
+// Identity and Organization
+// -------------------------------------------------------------
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  role         Role
+  fullName     String
+  phone        String?
+  avatarUrl    String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships       CollegeMembership[]
+  wardenAssignments WardenAssignment[]
+  studentProfile    StudentProfile?
+  notifications     Notification[]
+  auditLogs         AuditLog[]
+
+  reviewedColleges     College[]             @relation("CollegeReviewer")
+  verificationReviews  VerificationReview[]  @relation("Reviewer")
+  approvedMemberships  CollegeMembership[]   @relation("MembershipApprover")
+  approvedStudents     StudentProfile[]      @relation("StudentApprover")
+  allocatedRooms       RoomAllocation[]      @relation("RoomAllocator")
+  conductedSessions    AttendanceSession[]   @relation("SessionConductor")
+  correctedAttendance  AttendanceRecord[]    @relation("AttendanceCorrector")
+  createdCharges       StudentCharge[]       @relation("ChargeCreator")
+  issuedFines          Fine[]                @relation("FineIssuer")
+  reviewedAppeals      FineAppeal[]          @relation("AppealReviewer")
+  complaintMessages    ComplaintMessage[]    @relation("Sender")
+  complaintEvents      ComplaintEvent[]      @relation("Actor")
+  approvedLeaves       LeaveRequest[]        @relation("LeaveApprover")
+  publishedNotices     Notice[]              @relation("NoticePublisher")
+
+  @@index([email])
+  @@index([role])
+}
+
+model College {
+  id                    String        @id @default(uuid())
+  name                  String
+  code                  String        @unique
+  officialEmail         String        @unique
+  website               String?
+  address               String
+  city                  String
+  state                 String
+  pincode               String
+  phone                 String
+  representativeName    String
+  representativeRole    String
+  representativeContact String
+  status                CollegeStatus @default(PENDING_VERIFICATION)
+  verificationNotes     String?
+  reviewedById          String?
+  reviewedAt            DateTime?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  reviewedBy            User?         @relation("CollegeReviewer", fields: [reviewedById], references: [id])
+
+  documents             CollegeDocument[]
+  memberships           CollegeMembership[]
+  hostels               Hostel[]
+  wardenAssignments     WardenAssignment[]
+  wardenInvitations     WardenInvitation[]
+  verificationReviews   VerificationReview[]
+  studentProfiles       StudentProfile[]
+  rooms                 Room[]
+  roomAllocations       RoomAllocation[]
+  attendanceSessions    AttendanceSession[]
+  messMenus             MessMenu[]
+  laundrySlots          LaundrySlot[]
+  laundryBookings       LaundryBooking[]
+  cleaningTasks         CleaningTask[]
+  feeCategories         FeeCategory[]
+  feeStructures         FeeStructure[]
+  studentCharges        StudentCharge[]
+  payments              Payment[]
+  fines                 Fine[]
+  complaints            Complaint[]
+  leaveRequests         LeaveRequest[]
+  hostelRules           HostelRule[]
+  facilities            Facility[]
+  notices               Notice[]
+  auditLogs             AuditLog[]
+
+  @@index([status])
+  @@index([name])
+}
+
+model CollegeDocument {
+  id           String   @id @default(uuid())
+  collegeId    String
+  documentType String
+  fileUrl      String
+  fileName     String
+  uploadedAt   DateTime @default(now())
+
+  college      College  @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+
+  @@index([collegeId])
+}
+
+model CollegeMembership {
+  id           String    @id @default(uuid())
+  userId       String
+  collegeId    String
+  role         Role
+  isApproved   Boolean   @default(false)
+  approvedAt   DateTime?
+  approvedById String?
+  createdAt    DateTime  @default(now())
+
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  college      College   @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  approvedBy   User?     @relation("MembershipApprover", fields: [approvedById], references: [id])
+
+  @@unique([userId, collegeId])
+  @@index([collegeId])
+  @@index([userId])
+}
+
+model Hostel {
+  id          String     @id @default(uuid())
+  collegeId   String
+  name        String
+  type        HostelType
+  totalFloors Int        @default(3)
+  description String?
+  status      String     @default("ACTIVE")
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  college     College    @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+
+  blocks              Block[]
+  rooms               Room[]
+  wardenAssignments   WardenAssignment[]
+  wardenInvitations   WardenInvitation[]
+  studentProfiles     StudentProfile[]
+  roomAllocations     RoomAllocation[]
+  attendanceSessions  AttendanceSession[]
+  messMenus           MessMenu[]
+  laundrySlots        LaundrySlot[]
+  laundryBookings     LaundryBooking[]
+  cleaningTasks       CleaningTask[]
+  feeStructures       FeeStructure[]
+  studentCharges      StudentCharge[]
+  fines               Fine[]
+  complaints          Complaint[]
+  leaveRequests       LeaveRequest[]
+  hostelRules         HostelRule[]
+  facilities          Facility[]
+  notices             Notice[]
+
+  @@unique([collegeId, name])
+  @@index([collegeId])
+}
+
+model WardenAssignment {
+  id         String   @id @default(uuid())
+  userId     String
+  hostelId   String
+  collegeId  String
+  assignedAt DateTime @default(now())
+  isPrimary  Boolean  @default(true)
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hostel     Hostel   @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+  college    College  @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, hostelId])
+  @@index([collegeId])
+  @@index([userId])
+  @@index([hostelId])
+}
+
+model WardenInvitation {
+  id        String   @id @default(uuid())
+  email     String
+  collegeId String
+  hostelId  String
+  token     String   @unique
+  expiresAt DateTime
+  status    String   @default("PENDING") // PENDING, ACCEPTED, EXPIRED
+  createdAt DateTime @default(now())
+
+  college   College  @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  hostel    Hostel   @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([collegeId])
+}
+
+model VerificationReview {
+  id           String   @id @default(uuid())
+  collegeId    String
+  reviewedById String
+  decision     String
+  reason       String
+  reviewedAt   DateTime @default(now())
+
+  college      College  @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  reviewedBy   User     @relation("Reviewer", fields: [reviewedById], references: [id])
+
+  @@index([collegeId])
+}
+
+// -------------------------------------------------------------
+// Hostel Operations: Rooms & Beds
+// -------------------------------------------------------------
+
+model Block {
+  id        String   @id @default(uuid())
+  hostelId  String
+  name      String
+  code      String
+
+  hostel    Hostel   @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+  rooms     Room[]
+
+  @@unique([hostelId, name])
+  @@index([hostelId])
+}
+
+model Room {
+  id          String   @id @default(uuid())
+  blockId     String
+  hostelId    String
+  collegeId   String
+  roomNumber  String
+  floor       Int
+  roomType    String   @default("DOUBLE") // SINGLE, DOUBLE, TRIPLE, DORM
+  capacity    Int      @default(2)
+  status      String   @default("ACTIVE")
+  createdAt   DateTime @default(now())
+
+  block       Block    @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  hostel      Hostel   @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+  college     College  @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+
+  beds                Bed[]
+  allocations         RoomAllocation[]
+  cleaningAssignments CleaningAssignment[]
+
+  @@unique([hostelId, roomNumber])
+  @@index([collegeId])
+  @@index([hostelId])
+}
+
+model Bed {
+  id         String    @id @default(uuid())
+  roomId     String
+  bedNumber  String
+  status     BedStatus @default(AVAILABLE)
+  createdAt  DateTime  @default(now())
+
+  room       Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  allocations RoomAllocation[]
+
+  @@unique([roomId, bedNumber])
+  @@index([roomId])
+  @@index([status])
+}
+
+model StudentProfile {
+  id               String        @id @default(uuid())
+  userId           String        @unique
+  collegeId        String
+  hostelId         String
+  rollNumber       String
+  course           String
+  year             Int
+  emergencyContact String
+  status           StudentStatus @default(PENDING_APPROVAL)
+  approvedAt       DateTime?
+  approvedById     String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  college          College       @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  hostel           Hostel        @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+  approvedBy       User?         @relation("StudentApprover", fields: [approvedById], references: [id])
+
+  allocations          RoomAllocation[]
+  attendanceRecords    AttendanceRecord[]
+  laundryBookings      LaundryBooking[]
+  studentCharges       StudentCharge[]
+  payments             Payment[]
+  fines                Fine[]
+  fineAppeals          FineAppeal[]
+  complaints           Complaint[]
+  leaveRequests        LeaveRequest[]
+  facilityBookings     FacilityBooking[]
+  cleaningReports      CleaningAssignment[] @relation("ReportedMissedCleaning")
+
+  @@unique([collegeId, rollNumber])
+  @@index([collegeId])
+  @@index([hostelId])
+  @@index([status])
+}
+
+model RoomAllocation {
+  id          String           @id @default(uuid())
+  studentId   String
+  bedId       String
+  roomId      String
+  hostelId    String
+  collegeId   String
+  startDate   DateTime         @default(now())
+  endDate     DateTime?
+  status      AllocationStatus @default(ACTIVE)
+  allocatedAt DateTime         @default(now())
+  allocatedById String
+
+  student     StudentProfile   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  bed         Bed              @relation(fields: [bedId], references: [id], onDelete: Cascade)
+  room        Room             @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  hostel      Hostel           @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+  college     College          @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  allocatedBy User             @relation("RoomAllocator", fields: [allocatedById], references: [id])
+
+  @@index([studentId])
+  @@index([bedId])
+  @@index([hostelId])
+  @@index([collegeId])
+  @@index([status])
+}
+
+// -------------------------------------------------------------
+// Attendance Management
+// -------------------------------------------------------------
+
+model AttendanceSession {
+  id            String      @id @default(uuid())
+  hostelId      String
+  collegeId     String
+  date          DateTime    @db.Date
+  sessionType   SessionType
+  conductedById String
+  createdAt     DateTime    @default(now())
+
+  hostel        Hostel      @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+  college       College     @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  conductedBy   User        @relation("SessionConductor", fields: [conductedById], references: [id])
+
+  records       AttendanceRecord[]
+
+  @@unique([hostelId, date, sessionType])
+  @@index([hostelId])
+  @@index([collegeId])
+}
+
+model AttendanceRecord {
+  id               String           @id @default(uuid())
+  sessionId        String
+  studentId        String
+  status           AttendanceStatus @default(PRESENT)
+  remarks          String?
+  correctedById    String?
+  correctedAt      DateTime?
+  correctionReason String?
+
+  session          AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student          StudentProfile    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  correctedBy      User?             @relation("AttendanceCorrector", fields: [correctedById], references: [id])
+
+  @@unique([sessionId, studentId])
+  @@index([studentId])
+  @@index([sessionId])
+}
+
+// -------------------------------------------------------------
+// Mess Management
+// -------------------------------------------------------------
+
+model MessMenu {
+  id          String    @id @default(uuid())
+  hostelId    String
+  collegeId   String
+  dayOfWeek   String    // Monday, Tuesday, ...
+  mealType    MealType
+  startTime   String    // e.g. "07:30"
+  endTime     String    // e.g. "09:30"
+  title       String    // e.g. "South Indian Breakfast"
+  description String?
+  items       String    // comma separated or JSON string
+  isSpecial   Boolean   @default(false)
+  updatedAt   DateTime  @updatedAt
+
+  hostel      Hostel    @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+  college     College   @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+
+  @@unique([hostelId, dayOfWeek, mealType])
+  @@index([hostelId])
+  @@index([collegeId])
+}
+
+// -------------------------------------------------------------
+// Laundry Management
+// -------------------------------------------------------------
+
+model LaundrySlot {
+  id              String           @id @default(uuid())
+  hostelId        String
+  collegeId       String
+  dayOfWeek       String           // Monday, Tuesday...
+  startTime       String           // "09:00"
+  endTime         String           // "11:00"
+  maxCapacity     Int              @default(15)
+  currentBookings Int              @default(0)
+
+  hostel          Hostel           @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+  college         College          @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  bookings        LaundryBooking[]
+
+  @@index([hostelId])
+  @@index([collegeId])
+}
+
+model LaundryBooking {
+  id          String               @id @default(uuid())
+  slotId      String
+  studentId   String
+  hostelId    String
+  collegeId   String
+  bookingDate DateTime             @db.Date
+  status      LaundryBookingStatus @default(BOOKED)
+  createdAt   DateTime             @default(now())
+
+  slot        LaundrySlot          @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  student     StudentProfile       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  hostel      Hostel               @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+  college     College              @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+
+  @@unique([slotId, studentId, bookingDate])
+  @@index([studentId])
+  @@index([hostelId])
+}
+
+// -------------------------------------------------------------
+// Cleaning and Housekeeping
+// -------------------------------------------------------------
+
+model CleaningTask {
+  id            String               @id @default(uuid())
+  hostelId      String
+  collegeId     String
+  title         String               // e.g., "Daily Floor Mopping"
+  areaType      AreaType             @default(ROOM)
+  frequency     String               @default("DAILY") // DAILY, WEEKLY
+  scheduledTime String               @default("10:00 AM")
+  description   String?
+
+  hostel        Hostel               @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+  college       College              @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  assignments   CleaningAssignment[]
+
+  @@index([hostelId])
+  @@index([collegeId])
+}
+
+model CleaningAssignment {
+  id                  String         @id @default(uuid())
+  taskId              String
+  roomId              String?
+  scheduledDate       DateTime       @db.Date
+  status              CleaningStatus @default(PENDING)
+  completedAt         DateTime?
+  missedReason        String?
+  reportedByStudentId String?
+
+  task                CleaningTask   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  room                Room?          @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  reportedBy          StudentProfile? @relation("ReportedMissedCleaning", fields: [reportedByStudentId], references: [id])
+
+  @@index([taskId])
+  @@index([scheduledDate])
+  @@index([status])
+}
+
+// -------------------------------------------------------------
+// Finance, Charges, Payments, Fines
+// -------------------------------------------------------------
+
+model FeeCategory {
+  id          String          @id @default(uuid())
+  collegeId   String
+  name        String          // e.g., "Hostel Accommodation", "Mess Charges", "Maintenance"
+  description String?
+  isMandatory Boolean         @default(true)
+
+  college     College         @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  structures  FeeStructure[]
+  charges     StudentCharge[]
+
+  @@unique([collegeId, name])
+  @@index([collegeId])
+}
+
+model FeeStructure {
+  id           String      @id @default(uuid())
+  collegeId    String
+  hostelId     String
+  categoryId   String
+  amount       Float
+  billingCycle String      @default("SEMESTER") // MONTHLY, SEMESTER, ANNUAL
+  dueDate      DateTime?
+
+  college      College     @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  hostel       Hostel      @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+  category     FeeCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([hostelId, categoryId, billingCycle])
+  @@index([collegeId])
+}
+
+model StudentCharge {
+  id          String       @id @default(uuid())
+  studentId   String
+  collegeId   String
+  hostelId    String
+  categoryId  String
+  amount      Float
+  dueDate     DateTime
+  status      ChargeStatus @default(PENDING)
+  description String?
+  createdById String
+  createdAt   DateTime     @default(now())
+
+  student     StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  college     College        @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  hostel      Hostel         @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+  category    FeeCategory    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  createdBy   User           @relation("ChargeCreator", fields: [createdById], references: [id])
+
+  payments    Payment[]
+
+  @@index([studentId])
+  @@index([collegeId])
+  @@index([status])
+}
+
+model Payment {
+  id                   String        @id @default(uuid())
+  chargeId             String
+  studentId            String
+  collegeId            String
+  amount               Float
+  paymentMethod        PaymentMethod @default(ONLINE)
+  transactionReference String        @unique
+  isVerified           Boolean       @default(true)
+  paymentDate          DateTime      @default(now())
+  receiptNumber        String        @unique
+
+  charge               StudentCharge @relation(fields: [chargeId], references: [id], onDelete: Cascade)
+  student              StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  college              College       @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+
+  @@index([chargeId])
+  @@index([studentId])
+  @@index([collegeId])
+}
+
+model Fine {
+  id          String      @id @default(uuid())
+  studentId   String
+  collegeId   String
+  hostelId    String
+  reason      String
+  amount      Float
+  status      FineStatus  @default(ISSUED)
+  issuedById  String
+  dueDate     DateTime
+  createdAt   DateTime    @default(now())
+
+  student     StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  college     College        @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  hostel      Hostel         @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+  issuedBy    User           @relation("FineIssuer", fields: [issuedById], references: [id])
+
+  appeals     FineAppeal[]
+
+  @@index([studentId])
+  @@index([collegeId])
+  @@index([status])
+}
+
+model FineAppeal {
+  id               String       @id @default(uuid())
+  fineId           String
+  studentId        String
+  reason           String
+  status           AppealStatus @default(PENDING)
+  reviewedById     String?
+  reviewerComments String?
+  reviewedAt       DateTime?
+  createdAt        DateTime     @default(now())
+
+  fine             Fine         @relation(fields: [fineId], references: [id], onDelete: Cascade)
+  student          StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  reviewedBy       User?        @relation("AppealReviewer", fields: [reviewedById], references: [id])
+
+  @@index([fineId])
+  @@index([studentId])
+}
+
+// -------------------------------------------------------------
+// Requests: Complaints & SLA Engine
+// -------------------------------------------------------------
+
+model Complaint {
+  id           String            @id @default(uuid())
+  ticketNumber String            @unique
+  studentId    String
+  collegeId    String
+  hostelId     String
+  category     ComplaintCategory
+  title        String
+  description  String
+  urgency      Urgency           @default(MEDIUM)
+  status       ComplaintStatus   @default(SUBMITTED)
+  slaDeadline  DateTime
+  resolvedAt   DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  student      StudentProfile    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  college      College           @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  hostel       Hostel            @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+
+  messages     ComplaintMessage[]
+  events       ComplaintEvent[]
+
+  @@index([studentId])
+  @@index([collegeId])
+  @@index([hostelId])
+  @@index([status])
+  @@index([slaDeadline])
+}
+
+model ComplaintMessage {
+  id             String    @id @default(uuid())
+  complaintId    String
+  senderId       String
+  message        String
+  isInternalNote Boolean   @default(false)
+  attachmentUrl  String?
+  createdAt      DateTime  @default(now())
+
+  complaint      Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  sender         User      @relation("Sender", fields: [senderId], references: [id])
+
+  @@index([complaintId])
+}
+
+model ComplaintEvent {
+  id          String    @id @default(uuid())
+  complaintId String
+  actorId     String
+  action      String    // e.g., "STATUS_CHANGED", "SLA_ESCALATED", "REOPENED"
+  notes       String?
+  createdAt   DateTime  @default(now())
+
+  complaint   Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  actor       User      @relation("Actor", fields: [actorId], references: [id])
+
+  @@index([complaintId])
+}
+
+// -------------------------------------------------------------
+// Leave Management & Digital QR Passes
+// -------------------------------------------------------------
+
+model LeaveRequest {
+  id               String      @id @default(uuid())
+  studentId        String
+  collegeId        String
+  hostelId         String
+  leaveType        LeaveType   @default(WEEKEND)
+  startDate        DateTime
+  endDate          DateTime
+  reason           String
+  destination      String
+  contactNumber    String
+  emergencyContact String?
+  status           LeaveStatus @default(PENDING)
+  passCode         String?     @unique
+  approvedById     String?
+  approvedAt       DateTime?
+  wardenRemarks    String?
+  qrToken          String?     @unique
+  createdAt        DateTime    @default(now())
+
+  student          StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  college          College        @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  hostel           Hostel         @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+  approvedBy       User?          @relation("LeaveApprover", fields: [approvedById], references: [id])
+
+  @@index([studentId])
+  @@index([collegeId])
+  @@index([status])
+}
+
+// -------------------------------------------------------------
+// Facilities: Cafeteria, Gym, Sports & Rules
+// -------------------------------------------------------------
+
+model HostelRule {
+  id             String   @id @default(uuid())
+  collegeId      String
+  hostelId       String?
+  category       String   // e.g. "Curfew", "Visitor Policy", "Noise", "Discipline"
+  title          String
+  description    String
+  penaltyDetails String?
+  version        Int      @default(1)
+  isActive       Boolean  @default(true)
+  updatedAt      DateTime @updatedAt
+
+  college        College  @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  hostel         Hostel?  @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+
+  @@index([collegeId])
+}
+
+model Facility {
+  id          String       @id @default(uuid())
+  collegeId   String
+  hostelId    String?
+  type        FacilityType
+  name        String
+  location    String
+  capacity    Int          @default(50)
+  description String?
+  isActive    Boolean      @default(true)
+
+  college     College      @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  hostel      Hostel?      @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+
+  hours       FacilityHours[]
+  menuItems   CafeteriaMenuItem[]
+  staff       FacilityStaff[]
+  bookings    FacilityBooking[]
+
+  @@index([collegeId])
+  @@index([type])
+}
+
+model FacilityHours {
+  id         String   @id @default(uuid())
+  facilityId String
+  dayOfWeek  String   // Monday, Tuesday...
+  openTime   String   // "06:00 AM"
+  closeTime  String   // "09:00 PM"
+
+  facility   Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  @@index([facilityId])
+}
+
+model CafeteriaMenuItem {
+  id          String   @id @default(uuid())
+  facilityId  String
+  name        String
+  category    String   // Snacks, Beverages, Meals
+  price       Float
+  isAvailable Boolean  @default(true)
+  mealTiming  String?
+
+  facility    Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  @@index([facilityId])
+}
+
+model FacilityStaff {
+  id             String   @id @default(uuid())
+  facilityId     String
+  name           String
+  role           String   // e.g. "Head Fitness Trainer", "Cafeteria Supervisor"
+  contact        String?
+  specialization String?
+  timing         String?
+
+  facility       Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  @@index([facilityId])
+}
+
+model FacilityBooking {
+  id          String         @id @default(uuid())
+  facilityId  String
+  studentId   String
+  bookingDate DateTime       @db.Date
+  startTime   String
+  endTime     String
+  status      String         @default("CONFIRMED")
+
+  facility    Facility       @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  student     StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([facilityId])
+  @@index([studentId])
+}
+
+// -------------------------------------------------------------
+// Notices, Notifications & Audit Log
+// -------------------------------------------------------------
+
+model Notice {
+  id             String         @id @default(uuid())
+  collegeId      String
+  hostelId       String?
+  targetAudience TargetAudience @default(ALL)
+  title          String
+  content        String
+  priority       NoticePriority @default(NORMAL)
+  expiresAt      DateTime?
+  publishedById  String
+  createdAt      DateTime       @default(now())
+
+  college        College        @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  hostel         Hostel?        @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+  publishedBy    User           @relation("NoticePublisher", fields: [publishedById], references: [id])
+
+  @@index([collegeId])
+  @@index([hostelId])
+  @@index([priority])
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  type      NotificationType @default(INFO)
+  link      String?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  collegeId  String?
+  actorId    String
+  actorRole  Role
+  action     String   // e.g. "APPROVE_STUDENT", "ALLOCATE_ROOM", "ISSUE_FINE"
+  entityType String   // e.g. "StudentProfile", "RoomAllocation", "Fine"
+  entityId   String
+  details    String?  // JSON string or summary
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  college    College? @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  actor      User     @relation(fields: [actorId], references: [id])
+
+  @@index([collegeId])
+  @@index([actorId])
+  @@index([action])
+  @@index([createdAt])
+}
